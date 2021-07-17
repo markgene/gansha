@@ -86,7 +86,7 @@ process TrimGalore {
 }
 
 /*
- * STEP 3 - MultiQC
+ * MultiQC for FastQC
  */
 process MultiQCFastQC {
     label 'multiqc'
@@ -109,7 +109,9 @@ process MultiQCFastQC {
     """
 }
 
-
+/*
+ * MultiQC for Trim Galore
+ */
 process MultiQCTrimGalore {
     label 'multiqc'
     publishDir "${params.outdir}/multiqc/trimgalore", mode: 'copy'
