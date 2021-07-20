@@ -12,6 +12,11 @@ Channel
     .ifEmpty { exit 1, "Cannot find any bams matching: ${params.bams}\nNB: Path needs to be enclosed in quotes!\nNB: Path requires at least one * wildcard!\n" }
     .set { ch_input_bam  }  
 
+ /*
+ * PREPROCESSING - Prepare genome intervals for filtering
+ */
+if (params.fasta) { ch_fasta = file(params.fasta, checkIfExists: true) } else { exit 1, "Fasta file not specified!" }   
+
 /*
  ATAC-seq BAM filter based on ENCODE ATAC-seq pipeline for paired-end
 */
@@ -157,7 +162,7 @@ process RemoveOrphan {
     set val(name), file(bam) from ch_fixmate_bam
 
     output:
-    set val(name), file("*.orphan_rm.bam") into ch_orphan_rm_bam
+    set val(name), file("*.orphan_rm.bam") into ch_orphan_rm_bam // The BAM file is already sorted
     file "*.{flagstat,idxstats,stats}" into ch_orphan_rm_bam_stats_mqc
 
     script:
@@ -203,6 +208,8 @@ process MultiQCOrphanRemoval {
 */
 process PicardMarkDuplicates {
     tag "$name"
+    label "picard"
+
     publishDir path: "${params.outdir}", mode: 'copy',
         saveAs: { filename ->
                           if (filename.endsWith(".flagstat")) "samtools_stats/mark_dups/$filename"
@@ -216,7 +223,7 @@ process PicardMarkDuplicates {
     set val(name), file(bam) from ch_orphan_rm_bam
 
     output:
-    set val(name), file("*.mark_dups.bam") into ch_mark_dups_bam
+    set val(name), file("*.mark_dups.bam") into ch_mark_dups_bam // The BAM file is already sorted
     file "*.{flagstat,idxstats,stats}" into ch_mark_dups_bam_stats_mqc
     file "*.metrics.txt" into ch_mark_dups_metrics_mqc
 
@@ -262,6 +269,113 @@ process MultiQCPicardMarkDuplicates {
 
     output:
     file "*multiqc_report.html" into ch_multiqc_report_mark_dups
+    file "*_data"
+    file "multiqc_plots"
+
+    script:
+    """
+    multiqc . -f -p
+    """
+}
+
+/*
+ ATAC-seq BAM filter based on ENCODE ATAC-seq pipeline for paired-end
+*/
+process AtacBamEncodeFilterRound2 {
+    tag "$name"
+    publishDir path: "${params.outdir}", mode: 'copy',
+        saveAs: { filename ->
+                          if (filename.endsWith(".flagstat")) "samtools_stats/filter_round2/$filename"
+                          else if (filename.endsWith(".idxstats")) "samtools_stats/filter_round2/$filename"
+                          else if (filename.endsWith(".stats")) "samtools_stats/filter_round2/$filename"
+                          else null
+
+                }
+
+    input:
+    set val(name), file(bam) from ch_mark_dups_bam // The BAM file is already sorted
+
+    output:
+    set val(name), file("*.flt.bam") into ch_filter2_bam // The BAM file is already sorted
+    file "*.{flagstat,idxstats,stats}" into ch_filter2_bam_stats_mqc
+
+    script:
+    prefix = "${name}.flt"
+    filter_params = "-F 1804 -f 2"
+    multimap_params = params.keep_multi_map ? "" : "-q ${params.mapq_threshold}"
+    """
+    samtools view \\
+        $filter_params \\
+        $multimap_params \\
+        -@ $task.cpus \\
+        -b -o ${prefix}.bam ${bam[0]}
+
+    samtools index ${prefix}.bam
+    samtools flagstat ${prefix}.bam > ${prefix}.flagstat
+    samtools idxstats ${prefix}.bam > ${prefix}.idxstats
+    samtools stats ${prefix}.bam > ${prefix}.stats
+    """
+}
+
+/*
+ * Picard Collect Multiple Metrics
+ */
+process PicardCollectMultipleMetrics {
+    tag "$name"
+    label "picard"
+    publishDir path: "${params.outdir}", mode: 'copy',
+        saveAs: { filename ->
+                      if (filename.endsWith("_metrics")) "picard_metrics/filter_round2/$filename"
+                      else if (filename.endsWith(".pdf")) "picard_metrics/filter_round2/pdf/$filename"
+                      else null
+                }
+
+    when:
+    !params.skip_picard_metrics
+
+    input:
+    set val(name), file(bam) from ch_filter2_bam
+    file fasta from ch_fasta
+
+    output:
+    file "*_metrics" into ch_collectmetrics_mqc
+    file "*.pdf" into ch_collectmetrics_pdf
+
+    script:
+    prefix = "${name}.flt"
+    avail_mem = params.picard_mem
+    if (!task.memory) {
+        log.info "[Picard CollectMultipleMetrics] Available memory not known - defaulting to 5GB. Specify process memory requirements to change this."
+    } else {
+        avail_mem = task.memory.toGiga()
+    }
+    """
+    picard -Xmx${avail_mem}g CollectMultipleMetrics \\
+        INPUT=${bam[0]} \\
+        OUTPUT=${prefix}.CollectMultipleMetrics \\
+        REFERENCE_SEQUENCE=$fasta \\
+        VALIDATION_STRINGENCY=LENIENT \\
+        TMP_DIR=tmp
+    """
+}
+
+
+/*
+ * MultiQC for Filter round 2
+ */
+process MultiQCFilterRound2 {
+    label 'multiqc'
+    publishDir "${params.outdir}/multiqc/filter_round2", mode: 'copy'
+
+    when:
+    !params.skip_multiqc
+
+    input:
+    file ('samtools_stats/filter_round2/*') from ch_filter2_bam_stats_mqc.collect()
+    file ('picard_metrics/filter_round2/*_metrics') from ch_collectmetrics_mqc.collect()
+
+    output:
+    file "*multiqc_report.html" into ch_multiqc_report_filter2
     file "*_data"
     file "multiqc_plots"
 
