@@ -302,7 +302,7 @@ process AtacBamEncodeFilterRound2 {
     set val(name), file(bam) from ch_mark_dups_bam // The BAM file is already sorted
 
     output:
-    set val(name), file("*.flt.bam") into ch_filter2_bam // The BAM file is already sorted
+    set val(name), file("*.flt.bam") into ch_filter2_bam, ch_in_lib_complexity // The BAM file is already sorted
     file "*.{flagstat,idxstats,stats}" into ch_filter2_bam_stats_mqc
 
     script:
@@ -388,5 +388,46 @@ process MultiQCFilterRound2 {
     script:
     """
     multiqc . -f -p
+    """
+}
+
+
+/*
+ * Library complexity metrics based on ENCODE Guidelines
+ */
+process LibraryComplexity {
+    tag "$name"
+
+    publishDir "${params.outdir}/library_complexity", mode: 'copy'
+
+    input:
+    set val(name), file(bam) from ch_in_lib_complexity
+
+    output:
+    file "*.nrf_pbc.txt" into ch_lib_complexity
+
+    script:
+    prefix = "${name}.flt"
+    mito_name = params.mito_name
+    // Format:
+    // TotalReadPairs [tab]: mt
+    // DistinctReadPairs [tab]: m0
+    // OneReadPair [tab]: m1
+    // TwoReadPairs [tab]: m2
+    // NRF=Distinct/Total [tab]: m0/mt 
+    // PBC1=OnePair/Distinct [tab]: m1/m0 
+    // PBC2=OnePair/TwoPair: m1/m2
+    //
+    // Explain:
+    // 1. The bamtobed command and awk output chrom1, start1, chrom2, end2, strand1, strand2.
+    // 2. Mito reads are skipped.
+    // 3. Unique read pairs defined by the field above.
+    // 4. Count.
+    """
+    samtools sort -n -o ${prefix}.sort_by_read.bam ${bam[0]}
+    bedtools bamtobed -bedpe -i ${prefix}.sort_by_read.bam \
+      | awk 'BEGIN{OFS="\\t"}{print \$1,\$2,\$4,\$6,\$9,\$10}' \
+      | grep -v "${mito_name}" | sort | uniq -c \
+      | awk 'BEGIN{mt=0;m0=0;m1=0;m2=0} (\$1==1){m1=m1+1} (\$1==2){m2=m2+1} {m0=m0+1} {mt=mt+\$1} END{m2 == 0 ? pbc2 = -1 : pbc2 = m1/m2; printf "%d\\t%d\\t%d\\t%d\\t%f\\t%f\\t%f\\n",mt,m0,m1,m2,m0/mt,m1/m0,pbc2}' > ${prefix}.nrf_pbc.txt
     """
 }
