@@ -414,9 +414,11 @@ process LibraryComplexity {
     // 2. Mito reads are skipped.
     // 3. Unique read pairs defined by the field above.
     // 4. Count.
+    //
+    // nameSrt suffix is consistent with Samtools fixmate manual
     """
-    samtools sort -n -o ${prefix}.sort_by_read.bam ${bam[0]}
-    bedtools bamtobed -bedpe -i ${prefix}.sort_by_read.bam \
+    samtools sort -n -o ${prefix}.nameSrt.bam ${bam[0]}
+    bedtools bamtobed -bedpe -i ${prefix}.nameSrt.bam \
       | awk 'BEGIN{OFS="\\t"}{print \$1,\$2,\$4,\$6,\$9,\$10}' \
       | grep -v "${mito_name}" | sort | uniq -c \
       | awk 'BEGIN{mt=0;m0=0;m1=0;m2=0} (\$1==1){m1=m1+1} (\$1==2){m2=m2+1} {m0=m0+1} {mt=mt+\$1} END{m2 == 0 ? pbc2 = -1 : pbc2 = m1/m2; printf "%d\\t%d\\t%d\\t%d\\t%f\\t%f\\t%f\\n",mt,m0,m1,m2,m0/mt,m1/m0,pbc2}' > ${prefix}.nrf_pbc.txt
