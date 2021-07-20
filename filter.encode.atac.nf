@@ -294,7 +294,7 @@ process AtacBamEncodeFilterRound2 {
                           if (filename.endsWith(".flagstat")) "samtools_stats/filter_round2/$filename"
                           else if (filename.endsWith(".idxstats")) "samtools_stats/filter_round2/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/filter_round2/$filename"
-                          else null
+                          else if (filename.endsWith(".flt.bam")) filename
 
                 }
 
