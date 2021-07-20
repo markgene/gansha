@@ -237,20 +237,16 @@ process PicardMarkDuplicates {
     // REMOVE_DUPLICATES=false
     prefix = "${name}.mark_dups"
     avail_mem = params.picard_mem
-    if (!task.memory) {
-        log.info "[Picard MarkDuplicates] Available memory not known - defaulting to 5GB. Specify process memory requirements to change this."
-    } else {
-        avail_mem = task.memory.toGiga()
-    }
     """
     picard -Xmx${avail_mem}g MarkDuplicates \\
-        INPUT=${bam[0]} \\
-        OUTPUT=${prefix}.bam \\
-        ASSUME_SORTED=true \\
-        REMOVE_DUPLICATES=false \\
-        METRICS_FILE=${prefix}.metrics.txt \\
-        VALIDATION_STRINGENCY=LENIENT \\
-        TMP_DIR=tmp
+        -INPUT ${bam[0]} \\
+        -OUTPUT ${prefix}.bam \\
+        -ASSUME_SORTED true \\
+        -REMOVE_DUPLICATES false \\
+        -METRICS_FILE ${prefix}.metrics.txt \\
+        -VALIDATION_STRINGENCY LENIENT \\
+        -MAX_RECORDS_IN_RAM 250000 \\
+        -TMP_DIR tmp
 
     samtools index ${prefix}.bam
     samtools idxstats ${prefix}.bam > ${prefix}.idxstats
@@ -350,11 +346,6 @@ process PicardCollectMultipleMetrics {
     script:
     prefix = "${name}.flt"
     avail_mem = params.picard_mem
-    if (!task.memory) {
-        log.info "[Picard CollectMultipleMetrics] Available memory not known - defaulting to 5GB. Specify process memory requirements to change this."
-    } else {
-        avail_mem = task.memory.toGiga()
-    }
     """
     picard -Xmx${avail_mem}g CollectMultipleMetrics \\
         INPUT=${bam[0]} \\
