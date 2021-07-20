@@ -46,7 +46,7 @@ process BamToBedpe {
     set val(name), file(bam) from ch_name_sort_bam
 
     output:
-    set val(name), file("*.bedpe.gz") into ch_bedpe_gz
+    set val(name), file("*.bedpe.gz") into ch_bedpe_gz, ch_subsample_bedpe_gz
 
     script:
     prefix = "${name}"
@@ -72,7 +72,9 @@ process BedpeToTagAlign {
 
     script:
     prefix = "${name}"
-    // The so-called tagAlign format is BED6
+    subsample_mb = params.xcor_subsample_size / 1000000
+    subsample_ta_file = "${prefix}.sample${subsample_mb}mb.mate1.ta.gz"
+    // The so-called tagAlign format is BED6:
     // 1. Chrom1
     // 2. Start1
     // 3. End1
@@ -83,6 +85,10 @@ process BedpeToTagAlign {
     // Explain: the read pair on each line of BEDPE file is split into two rows in the output.
     """
     zcat ${bedpe} | awk 'BEGIN{OFS="\\t"}{printf "%s\\t%s\\t%s\\tN\\t1000\\t%s\\n%s\\t%s\\t%s\\tN\\t1000\\t%s\\n",\$1,\$2,\$3,\$9,\$4,\$5,\$6,\$10}' | gzip -nc > ${prefix}.ta.gz
+
+    zcat ${bedpe} \\
+      | grep -v "${params.mito_name}" \\
+      | shuf -n ${params.xcor_subsample_size} --random-source=<(openssl enc -aes-256-ctr -pass pass:\$(zcat -f ${prefix}.ta.gz | wc -c) -nosalt </dev/zero 2>/dev/null) \\
+      | awk 'BEGIN{OFS="\\t"}{print \$1,\$2,\$3,"N","1000",\$9}' | gzip -nc > ${subsample_ta_file}
     """
 }
-
