@@ -197,3 +197,76 @@ process MultiQCOrphanRemoval {
     multiqc . -f -p -m samtools
     """
 }
+
+/*
+ Picard mark duplicates
+*/
+process PicardMarkDuplicates {
+    tag "$name"
+    publishDir path: "${params.outdir}", mode: 'copy',
+        saveAs: { filename ->
+                          if (filename.endsWith(".flagstat")) "samtools_stats/mark_dups/$filename"
+                          else if (filename.endsWith(".idxstats")) "samtools_stats/mark_dups/$filename"
+                          else if (filename.endsWith(".stats")) "samtools_stats/mark_dups/$filename"
+                          else if (filename.endsWith('.metrics.txt')) "picard_metrics/$filename"
+                          else null
+                }
+
+    input:
+    set val(name), file(bam) from ch_orphan_rm_bam
+
+    output:
+    set val(name), file("*.mark_dups.bam") into ch_mark_dups_bam
+    file "*.{flagstat,idxstats,stats}" into ch_mark_dups_bam_stats_mqc
+    file "*.metrics.txt" into ch_mark_dups_metrics_mqc
+
+    script:
+    // ENCODE ATAC-seq pipeline parameters:
+    // INPUT=${FILT_BAM_FILE} 
+    // OUTPUT=${TMP_FILT_BAM_FILE} 
+    // METRICS_FILE=${DUP_FILE_QC} 
+    // VALIDATION_STRINGENCY=LENIENT 
+    // ASSUME_SORTED=true 
+    // REMOVE_DUPLICATES=false
+    prefix = "${name}.mark_dups"
+    """
+    picard -Xmx5g MarkDuplicates \\
+        INPUT=${bam[0]} \\
+        OUTPUT=${prefix}.bam \\
+        ASSUME_SORTED=true \\
+        REMOVE_DUPLICATES=false \\
+        METRICS_FILE=${prefix}.metrics.txt \\
+        VALIDATION_STRINGENCY=LENIENT \\
+        TMP_DIR=tmp
+
+    samtools index ${prefix}.bam
+    samtools idxstats ${prefix}.bam > ${prefix}.idxstats
+    samtools flagstat ${prefix}.bam > ${prefix}.flagstat
+    samtools stats ${prefix}.bam > ${prefix}.stats
+    """
+}
+
+/*
+ * MultiQC for Picard MarkDuplicates
+ */
+process MultiQCPicardMarkDuplicates {
+    label 'multiqc'
+    publishDir "${params.outdir}/multiqc/mark_dups", mode: 'copy'
+
+    when:
+    !params.skip_multiqc
+
+    input:
+    file ('samtools_stats/mark_dups/*') from ch_mark_dups_bam_stats_mqc.collect()
+    file ('picard_metrics/*') from ch_mark_dups_metrics_mqc.collect()
+
+    output:
+    file "*multiqc_report.html" into ch_multiqc_report_mark_dups
+    file "*_data"
+    file "multiqc_plots"
+
+    script:
+    """
+    multiqc . -f -p
+    """
+}
