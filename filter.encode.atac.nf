@@ -236,8 +236,14 @@ process PicardMarkDuplicates {
     // ASSUME_SORTED=true 
     // REMOVE_DUPLICATES=false
     prefix = "${name}.mark_dups"
+    avail_mem = params.picard_mem
+    if (!task.memory) {
+        log.info "[Picard MarkDuplicates] Available memory not known - defaulting to 5GB. Specify process memory requirements to change this."
+    } else {
+        avail_mem = task.memory.toGiga()
+    }
     """
-    picard -Xmx5g MarkDuplicates \\
+    picard -Xmx${avail_mem}g MarkDuplicates \\
         INPUT=${bam[0]} \\
         OUTPUT=${prefix}.bam \\
         ASSUME_SORTED=true \\
