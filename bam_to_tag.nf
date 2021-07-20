@@ -68,7 +68,8 @@ process BedpeToTagAlign {
     set val(name), file(bedpe) from ch_bedpe_gz
 
     output:
-    set val(name), file("*.ta.gz") into ch_ta_gz
+    set val(name), file("${prefix}.ta.gz") into ch_ta_gz
+    set val(name), file("${subsample_ta_file}") into ch_subsampled_ta_gz
 
     script:
     prefix = "${name}"
