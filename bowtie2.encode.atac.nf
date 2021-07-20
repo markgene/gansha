@@ -67,7 +67,7 @@ process Bowtie2Align {
 /*
  * Convert .bam to coordinate sorted .bam
  */
-process SortBAM {
+process SamtoolsSortDefault {
     tag "$name"
 
     publishDir path: "${params.outdir}", mode: 'copy',
@@ -88,11 +88,11 @@ process SortBAM {
     script:
     prefix = "${name}.bowtie2.sorted"
     """
-    samtools sort -@ $task.cpus -o ${prefix}.sorted.bam -T $name $bam
-    samtools index ${prefix}.sorted.bam
-    samtools flagstat ${prefix}.sorted.bam > ${prefix}.sorted.bam.flagstat
-    samtools idxstats ${prefix}.sorted.bam > ${prefix}.sorted.bam.idxstats
-    samtools stats ${prefix}.sorted.bam > ${prefix}.sorted.bam.stats
+    samtools sort -@ $task.cpus -o ${prefix}.bam -T $name $bam
+    samtools index ${prefix}.bam
+    samtools flagstat ${prefix}.bam > ${prefix}.flagstat
+    samtools idxstats ${prefix}.bam > ${prefix}.idxstats
+    samtools stats ${prefix}.bam > ${prefix}.stats
     """
 }
 
