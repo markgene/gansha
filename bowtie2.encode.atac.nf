@@ -25,9 +25,9 @@ Channel
     .ifEmpty { exit 1, "Cannot find any reads matching: ${params.reads}\nNB: Path needs to be enclosed in quotes!\nNB: Path requires at least one * wildcard!\n" }
     .set { ch_reads }
 
- /*
- * Align read Bowtie2
- */
+/*
+* Align read Bowtie2
+*/
 process Bowtie2Align {
     tag "$name"
 
