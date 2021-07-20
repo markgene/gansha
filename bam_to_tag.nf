@@ -34,7 +34,7 @@ process SamtoolsSortByReadName {
 
 
 /*
-* Create bedpe file (zipped)
+* Create BEDPE file (zipped)
 */
 process BamToBedpe {
     tag "$name"
@@ -54,3 +54,35 @@ process BamToBedpe {
     bedtools bamtobed -bedpe -mate1 -i ${bam[0]} | gzip -nc > ${prefix}.bedpe.gz
     """
 }
+
+/*
+* Create tagAlign file (zipped) from BEDPE file (zipped)
+*/
+process BedpeToTagAlign {
+    tag "$name"
+
+    publishDir "${params.outdir}", mode: 'copy',
+        saveAs: { filename -> params.save_ta_intermeds ? filename : null }
+
+    input:
+    set val(name), file(bedpe) from ch_bedpe_gz
+
+    output:
+    set val(name), file("*.ta.gz") into ch_ta_gz
+
+    script:
+    prefix = "${name}"
+    // The so-called tagAlign format is BED6
+    // 1. Chrom1
+    // 2. Start1
+    // 3. End1
+    // 4. Name: all set to N
+    // 5. Score: all set to 1000
+    // 6. Strand1
+    // 
+    // Explain: the read pair on each line of BEDPE file is split into two rows in the output.
+    """
+    zcat ${bedpe} | awk 'BEGIN{OFS="\\t"}{printf "%s\\t%s\\t%s\\tN\\t1000\\t%s\\n%s\\t%s\\t%s\\tN\\t1000\\t%s\\n",\$1,\$2,\$3,\$9,\$4,\$5,\$6,\$10}' | gzip -nc > ${prefix}.ta.gz
+    """
+}
+
