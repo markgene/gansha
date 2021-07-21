@@ -1,6 +1,9 @@
 // Bowtie2 
 // Using the same parameters as ENCODE ATACSeq Pipeline v1 specifications (2019/09/18)
 // https://docs.google.com/document/d/1f0Cm4vRyDQDu0bMehHD7P7KOMxTOP-HiNoIvL1VcBt8/edit
+//
+// Input: FASTQ files
+// Output: BAM files, coordinated sorted
 
 // Check parameters
 if (params.fasta) {

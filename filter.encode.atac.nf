@@ -4,8 +4,8 @@
 // Link of ENCODE ATACSeq Pipeline v1 specifications (2019/09/18)
 // https://docs.google.com/document/d/1f0Cm4vRyDQDu0bMehHD7P7KOMxTOP-HiNoIvL1VcBt8/edit
 // 
-// Input: sorted BAMs
-// Output: filtered BAMs.
+// Input: BAM files, coordinate sorted
+// Output: BAM files, coordinated sorted
 
 Channel
     .fromFilePairs( params.bams, size: -1 )

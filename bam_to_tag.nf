@@ -3,6 +3,9 @@
 //
 // Link of ENCODE ATACSeq Pipeline v1 specifications (2019/09/18)
 // https://docs.google.com/document/d/1f0Cm4vRyDQDu0bMehHD7P7KOMxTOP-HiNoIvL1VcBt8/edit
+//
+// Input: filtered BAM files
+// Output: to be added
 
 Channel
     .fromFilePairs( params.bams, size: -1 )
