@@ -287,14 +287,14 @@ process AtacBamEncodeFilterRound2 {
                           if (filename.endsWith(".flagstat")) "samtools_stats/filter_round2/$filename"
                           else if (filename.endsWith(".idxstats")) "samtools_stats/filter_round2/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/filter_round2/$filename"
-                          else if (filename.endsWith(".flt.bam")) filename
+                          else filename
                 }
 
     input:
     set val(name), file(bam) from ch_mark_dups_bam // The BAM file is already sorted
 
     output:
-    set val(name), file("*.flt.bam") into ch_filter2_bam, ch_in_lib_complexity // The BAM file is already sorted
+    set val(name), file("*.flt.bam"), file("*.flt.bam.bai") into ch_filter2_bam, ch_in_lib_complexity // The BAM file is already sorted
     file "*.{flagstat,idxstats,stats}" into ch_filter2_bam_stats_mqc
 
     script:
@@ -332,7 +332,7 @@ process PicardCollectMultipleMetrics {
     !params.skip_picard_metrics
 
     input:
-    set val(name), file(bam) from ch_filter2_bam
+    set val(name), file(bam), file(bai) from ch_filter2_bam
     file fasta from ch_fasta
 
     output:
@@ -388,7 +388,7 @@ process LibraryComplexity {
     publishDir "${params.outdir}/library_complexity", mode: 'copy'
 
     input:
-    set val(name), file(bam) from ch_in_lib_complexity
+    set val(name), file(bam), file(bai) from ch_in_lib_complexity
 
     output:
     file "*.nrf_pbc.txt" into ch_lib_complexity
