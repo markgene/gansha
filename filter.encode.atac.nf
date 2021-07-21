@@ -28,7 +28,6 @@ process AtacBamEncodeFilterRound1 {
                           else if (filename.endsWith(".idxstats")) "samtools_stats/filter_round1/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/filter_round1/$filename"
                           else null
-
                 }
 
     input:
@@ -95,7 +94,6 @@ process SamtoolsFixmate {
                           else if (filename.endsWith(".idxstats")) "samtools_stats/fixmate/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/fixmate/$filename"
                           else null
-
                 }
 
     input:
@@ -155,7 +153,6 @@ process RemoveOrphan {
                           else if (filename.endsWith(".idxstats")) "samtools_stats/orphan_rm/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/orphan_rm/$filename"
                           else null
-
                 }
 
     input:
@@ -291,7 +288,6 @@ process AtacBamEncodeFilterRound2 {
                           else if (filename.endsWith(".idxstats")) "samtools_stats/filter_round2/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/filter_round2/$filename"
                           else if (filename.endsWith(".flt.bam")) filename
-
                 }
 
     input:
