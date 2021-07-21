@@ -7,7 +7,6 @@
 * 2. Create BigWig track files.
 * 3. Prepare the nucleosome free regions BAM file for peak calling. 
 *
-*
 * Input: BAM files, coordinate sorted
 * Output: 
 *   1) BigWig files of all reads, scaled, 
@@ -16,7 +15,7 @@
 */
 
 
-// Examine input
+// Check input
 ch_chrom_size = file(params.chrom_sizes, checkIfExists: true)
 Channel
     .fromFilePairs( params.bams, size: -1 )
