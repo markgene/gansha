@@ -81,7 +81,7 @@ process NucFreeBigWig {
     file sizes from ch_chrom_size
 
     output:
-    set val(name), file("${prefix}.bam") into ch_nuc_free_macs2
+    set val(name), file("${prefix}.bam"), file("${prefix}.bam.bai") into ch_nuc_free_macs2
     set val(name), file("*.bigWig") into ch_nuc_free_bw
     set val(name), file("*.flagstat.scale_factor.txt") into ch_nuc_free_scale_factor
     file "*.{flagstat,idxstats,stats}" into ch_nuc_free_mqc
