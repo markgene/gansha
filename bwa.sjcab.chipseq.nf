@@ -87,7 +87,7 @@ process SamtoolsSortDefault {
     set val(name), file(bam) from ch_bwa_bam
 
     output:
-    set val(name), file("*.sorted.{bam,bam.bai}") into ch_sort_bam_merge
+    set val(name), file("*.sorted.marked.{bam,bam.bai}") into ch_sort_bam_merge
     file "*.{flagstat,idxstats,stats}" into ch_sort_bam_flagstat_mqc
 
     script:
@@ -105,7 +105,7 @@ process SamtoolsSortDefault {
 /*
  * MultiQC for Trim Galore
  */
-process MultiQCBowtie2 {
+process MultiQCBwa {
     label 'multiqc'
     publishDir "${params.outdir}/multiqc", mode: 'copy'
 
