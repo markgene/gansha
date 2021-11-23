@@ -71,20 +71,10 @@ process TrimGalore {
     tpc_r1 = params.three_prime_clip_r1 > 0 ? "--three_prime_clip_r1 ${params.three_prime_clip_r1}" : ''
     tpc_r2 = params.three_prime_clip_r2 > 0 ? "--three_prime_clip_r2 ${params.three_prime_clip_r2}" : ''
     nextseq = params.trim_nextseq > 0 ? "--nextseq ${params.trim_nextseq}" : ''
-    if (params.single_end) {
-        """
-        [ ! -f  ${name}.fastq.gz ] && ln -s $reads ${name}.fastq.gz
-        trim_galore --fastqc --gzip --length ${params.trim_min_len} $c_r1 $tpc_r1 $nextseq ${name}.fastq.gz -j $task.cpus
-        """
-    } else {
-        """
-        [ ! -f  ${name}_1.fastq.gz ] && ln -s ${reads[0]} ${name}_1.fastq.gz
-        [ ! -f  ${name}_2.fastq.gz ] && ln -s ${reads[1]} ${name}_2.fastq.gz
-        trim_galore --paired --fastqc --gzip --length ${params.trim_min_len} $c_r1 $c_r2 $tpc_r1 $tpc_r2 $nextseq ${name}_1.fastq.gz ${name}_2.fastq.gz -j $task.cpus
-        mv ${name}_1_val_1.fq.gz ${name}_R1_trimmed.fq.gz
-        mv ${name}_2_val_2.fq.gz ${name}_R2_trimmed.fq.gz
-        """
-    }
+    """
+    [ ! -f  ${name}.fastq.gz ] && ln -s $reads ${name}.fastq.gz
+    trim_galore --fastqc --gzip --length ${params.trim_min_len} $c_r1 $tpc_r1 $nextseq ${name}.fastq.gz -j $task.cpus
+    """
 }
 
 /*
