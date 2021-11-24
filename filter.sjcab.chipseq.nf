@@ -29,7 +29,7 @@ process SJCABChIPFilter {
                           if (filename.endsWith(".flagstat")) "samtools_stats/SJCAB_filter/$filename"
                           else if (filename.endsWith(".idxstats")) "samtools_stats/SJCAB_filter/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/SJCAB_filter/$filename"
-                          else null
+                          else filename
                 }
 
     input:
