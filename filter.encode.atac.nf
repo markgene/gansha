@@ -116,7 +116,7 @@ process SamtoolsFixmate {
                           if (filename.endsWith(".flagstat")) "samtools_stats/fixmate/$filename"
                           else if (filename.endsWith(".idxstats")) "samtools_stats/fixmate/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/fixmate/$filename"
-                          else if (filename.endsWith(".fixmate.bam") && filter_save_int_bam) "bam/fixmate/$filename"
+                          else if (filename.endsWith(".fixmate.bam") && params.filter_save_int_bam) "bam/fixmate/$filename"
                           else null
                 }
 
@@ -188,7 +188,7 @@ process RemoveOrphan {
                           if (filename.endsWith(".flagstat")) "samtools_stats/orphan_rm/$filename"
                           else if (filename.endsWith(".idxstats")) "samtools_stats/orphan_rm/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/orphan_rm/$filename"
-                          else if (filename.endsWith(".orphan_rm.bam") && filter_save_int_bam) "bam/orphan_rm/$filename"
+                          else if (filename.endsWith(".orphan_rm.bam") && params.filter_save_int_bam) "bam/orphan_rm/$filename"
                           else null
                 }
 
