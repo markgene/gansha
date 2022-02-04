@@ -20,7 +20,7 @@ if (params.fasta) { ch_fasta = file(params.fasta, checkIfExists: true) } else { 
 /*
  ATAC-seq BAM filter based on ENCODE ATAC-seq pipeline for paired-end
 
- # =============================
+# =============================
 # Remove  unmapped, mate unmapped
 # not primary alignment, reads failing platform
 # Only keep properly paired reads
