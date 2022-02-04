@@ -129,6 +129,85 @@ process BigWig {
 }
 
 
+/*
+* BAM and BigWig file of reads generated from putative nucleosome regions
+*/
+process NucFreeBigWig {
+    tag "${name}"
+
+    publishDir path: "${params.outdir}/nuc_free", mode: 'copy',
+        saveAs: { filename ->
+                          if (filename.endsWith(".flagstat")) "samtools_stats/$filename"
+                          else if (filename.endsWith(".idxstats")) "samtools_stats/$filename"
+                          else if (filename.endsWith(".stats")) "samtools_stats//$filename"
+                          else if (filename.endsWith(".bigWig")) "bigwig/$filename"
+                          else if (filename.endsWith(".flagstat.scale_factor.txt")) "bigwig/scale/$filename"
+                          else filename
+                }
+
+    input:
+    set val(name), file(target_bam), file(spikein_bam) from ch_bigwig_bams_nuc_free
+    file sizes from ch_genome_sizes_bigwig
+
+    output:
+    set val(name), file("${prefix}.bam"), file("${prefix}.bam.bai") into ch_nuc_free_macs2
+    set val(name), file("*.bigWig") into ch_nuc_free_bw
+    set val(name), file("*.flagstat.scale_factor.txt") into ch_nuc_free_scale_factor
+    file "*.{flagstat,idxstats,stats}" into ch_nuc_free_mqc
+    
+    script:
+    prefix = "${name}.nuc_free${params.nuc_free_max_len}"
+    target_prefix = "${prefix}.target"
+    spikein_prefix = "${prefix}.spikein"
+    scale_mb = params.scale_to / 1000000
+    prefix_scale_mb = "${prefix}.scale${scale_mb}mb"
+    pe_fragment = params.single_end ? "" : "-pc"
+    
+    """
+    samtools view -h ${target_bam} -@ $task.cpus \\
+        | awk 'BEGIN { FS="\\t"; SIZE=${params.nuc_free_max_len}; S2=SIZE*SIZE }  /^@/ { print \$0; next } { if (\$9*\$9 < S2) print \$0}' \\
+        | samtools view -@ $task.cpus -Sb - > ${target_prefix}.bam
+    samtools view -h ${spikein_bam} -@ $task.cpus \\
+        | awk 'BEGIN { FS="\\t"; SIZE=${params.nuc_free_max_len}; S2=SIZE*SIZE }  /^@/ { print \$0; next } { if (\$9*\$9 < S2) print \$0}' \\
+        | samtools view -@ $task.cpus -Sb - > ${spikein_prefix}.bam
+
+    samtools index ${target_prefix}.bam
+    samtools index ${spikein_prefix}.bam
+    samtools idxstats ${spikein_prefix}.bam > ${spikein_prefix}.idxstats
+    samtools flagstat ${spikein_prefix}.bam > ${spikein_prefix}.flagstat
+    samtools stats ${spikein_prefix}.bam > ${spikein_prefix}.stats
+
+    SCALE_FACTOR=\$(grep 'mapped (' ${spikein_prefix}.flagstat | awk '{print 1000000/\$1}')
+    echo \$SCALE_FACTOR > ${prefix}.per1mSpikein.scale_factor.txt
+    genomeCoverageBed -ibam ${target_prefix}.bam -bg -scale \$SCALE_FACTOR $pe_fragment $extend | LC_ALL=C sort -k1,1 -k2,2n >  ${prefix}.per1mSpikein.bedGraph
+    bedGraphToBigWig ${prefix}.per1mSpikein.bedGraph $sizes ${prefix}.per1mSpikein.bigWig
+    """
+}
+
+
+/*
+ * MultiQC for nucleosome free regions
+ */
+process MultiQCFilterNucFree {
+    label 'multiqc'
+    publishDir "${params.outdir}/nuc_free/multiqc", mode: 'copy'
+
+    when:
+    !params.skip_multiqc
+
+    input:
+    file ('nuc_free/samtools_stats/*') from ch_nuc_free_mqc.collect()
+
+    output:
+    file "*multiqc_report.html" into ch_nuc_free_multiqc_report
+    file "*_data"
+    file "multiqc_plots"
+
+    script:
+    """
+    multiqc . -f -p
+    """
+}
 
 
 /*
