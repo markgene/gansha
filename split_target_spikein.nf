@@ -37,6 +37,7 @@ process SplitTargetBAM {
     set val(name), file("*.target.bam") into ch_target_bam
     set val(name), file("*.target.bam.bai") into ch_target_bai
     set val(name), file("*.flagstat") into ch_target_bam_flagstat
+    set val(name), file("*.target.bam"), file("*.target.bam.bai") into ch_target_lib_complexity // The BAM file is already sorted
     file "*.{idxstats,stats}" into ch_target_bam_stats_mqc
 
     script:
@@ -72,9 +73,10 @@ process SplitSpikeinBAM {
 
     output:
     set val(name), file("*.spikein.bam") into ch_spikein_bam
-        set val(name), file("*.spikein.bam.bai") into ch_spikein_bai
+    set val(name), file("*.spikein.bam.bai") into ch_spikein_bai
     set val(name), file("*.flagstat") into ch_spikein_bam_flagstat
     file "*.{idxstats,stats}" into ch_spikein_bam_stats_mqc
+    set val(name), file("*.spikein.bam"), file("*.spikein.bam.bai") into ch_spikein_lib_complexity // The BAM file is already sorted
 
     script:
     """
@@ -90,7 +92,7 @@ process SplitSpikeinBAM {
 
 ch_target_bam
     .combine(ch_spikein_bam, by: 0)
-    .set { ch_bigwig_bams }
+    .into { ch_bigwig_bams; ch_bigwig_bams_nuc_free }
 
 // ch_bigwig_bams.view()
 
@@ -123,5 +125,139 @@ process BigWig {
     genomeCoverageBed -ibam ${target_bam} -bg -scale \$SCALE_FACTOR $pe_fragment $extend | LC_ALL=C sort -k1,1 -k2,2n >  ${prefix}.per1mSpikein.bedGraph
 
     bedGraphToBigWig ${prefix}.per1mSpikein.bedGraph $sizes ${prefix}.per1mSpikein.bigWig
+    """
+}
+
+
+
+
+/*
+ * Library complexity metrics based on ENCODE Guidelines
+
+# =============================
+# Compute library complexity
+# =============================
+# Sort by name
+# convert to bedPE and obtain fragment coordinates
+# sort by position and strand
+# Obtain unique count statistics
+
+module add bedtools/2.26
+
+PBC_FILE_QC="${FINAL_BAM_PREFIX}.pbc.qc"
+
+# TotalReadPairs [tab] DistinctReadPairs [tab] OneReadPair [tab] TwoReadPairs [tab] NRF=Distinct/Total [tab] PBC1=OnePair/Distinct [tab] PBC2=OnePair/TwoPair
+
+
+samtools sort -n ${FILT_BAM_FILE} -o ${OFPREFIX}.srt.tmp.bam
+bedtools bamtobed -bedpe -i ${OFPREFIX}.srt.tmp.bam | awk 'BEGIN{OFS="\t"}{print $1,$2,$4,$6,$9,$10}' | grep -v 'chrM' | sort | uniq -c | awk 'BEGIN{mt=0;m0=0;m1=0;m2=0} ($1==1){m1=m1+1} ($1==2){m2=m2+1} {m0=m0+1} {mt=mt+$1} END{printf "%d\t%d\t%d\t%d\t%f\t%f\t%f\n",mt,m0,m1,m2,m0/mt,m1/m0,m1/m2}' > ${PBC_FILE_QC}
+rm ${OFPREFIX}.srt.tmp.bam
+
+
+rm ${FILT_BAM_FILE}
+
+
+ */
+process LibraryComplexityTarget {
+    tag "$name"
+
+    publishDir "${params.outdir}/library_complexity", mode: 'copy'
+
+    input:
+    set val(name), file(bam), file(bai) from ch_target_lib_complexity
+
+    output:
+    file "*.nrf_pbc.txt" into ch_target_lib_complexity
+
+    script:
+    prefix = "${name}.target"
+    // Format:
+    // TotalReadPairs [tab]: mt
+    // DistinctReadPairs [tab]: m0
+    // OneReadPair [tab]: m1
+    // TwoReadPairs [tab]: m2
+    // NRF=Distinct/Total [tab]: m0/mt 
+    // PBC1=OnePair/Distinct [tab]: m1/m0 
+    // PBC2=OnePair/TwoPair: m1/m2
+    //
+    // Explain:
+    // 1. The bamtobed command and awk output chrom1, start1, chrom2, end2, strand1, strand2.
+    // 2. Mito reads are skipped.
+    // 3. Unique read pairs defined by the field above.
+    // 4. Count.
+    //
+    // nameSrt suffix is consistent with Samtools fixmate manual
+    """
+    samtools sort -n -o ${prefix}.nameSrt.bam ${bam[0]}
+    bedtools bamtobed -bedpe -i ${prefix}.nameSrt.bam \\
+      | awk 'BEGIN{OFS="\\t"}{print \$1,\$2,\$4,\$6,\$9,\$10}' \\
+      | grep -v "${params.mito_name}" | sort | uniq -c \\
+      | awk 'BEGIN{mt=0;m0=0;m1=0;m2=0} (\$1==1){m1=m1+1} (\$1==2){m2=m2+1} {m0=m0+1} {mt=mt+\$1} END{m2 == 0 ? pbc2 = -1 : pbc2 = m1/m2; printf "%d\\t%d\\t%d\\t%d\\t%f\\t%f\\t%f\\n",mt,m0,m1,m2,m0/mt,m1/m0,pbc2}' > ${prefix}.nrf_pbc.txt
+    """
+}
+
+
+/*
+ * Library complexity metrics based on ENCODE Guidelines
+
+# =============================
+# Compute library complexity
+# =============================
+# Sort by name
+# convert to bedPE and obtain fragment coordinates
+# sort by position and strand
+# Obtain unique count statistics
+
+module add bedtools/2.26
+
+PBC_FILE_QC="${FINAL_BAM_PREFIX}.pbc.qc"
+
+# TotalReadPairs [tab] DistinctReadPairs [tab] OneReadPair [tab] TwoReadPairs [tab] NRF=Distinct/Total [tab] PBC1=OnePair/Distinct [tab] PBC2=OnePair/TwoPair
+
+
+samtools sort -n ${FILT_BAM_FILE} -o ${OFPREFIX}.srt.tmp.bam
+bedtools bamtobed -bedpe -i ${OFPREFIX}.srt.tmp.bam | awk 'BEGIN{OFS="\t"}{print $1,$2,$4,$6,$9,$10}' | grep -v 'chrM' | sort | uniq -c | awk 'BEGIN{mt=0;m0=0;m1=0;m2=0} ($1==1){m1=m1+1} ($1==2){m2=m2+1} {m0=m0+1} {mt=mt+$1} END{printf "%d\t%d\t%d\t%d\t%f\t%f\t%f\n",mt,m0,m1,m2,m0/mt,m1/m0,m1/m2}' > ${PBC_FILE_QC}
+rm ${OFPREFIX}.srt.tmp.bam
+
+
+rm ${FILT_BAM_FILE}
+
+
+ */
+process LibraryComplexitySpikein {
+    tag "$name"
+
+    publishDir "${params.outdir}/library_complexity", mode: 'copy'
+
+    input:
+    set val(name), file(bam), file(bai) from ch_spikein_lib_complexity
+
+    output:
+    file "*.nrf_pbc.txt" into ch_spikein_lib_complexity
+
+    script:
+    prefix = "${name}.spikein"
+    // Format:
+    // TotalReadPairs [tab]: mt
+    // DistinctReadPairs [tab]: m0
+    // OneReadPair [tab]: m1
+    // TwoReadPairs [tab]: m2
+    // NRF=Distinct/Total [tab]: m0/mt 
+    // PBC1=OnePair/Distinct [tab]: m1/m0 
+    // PBC2=OnePair/TwoPair: m1/m2
+    //
+    // Explain:
+    // 1. The bamtobed command and awk output chrom1, start1, chrom2, end2, strand1, strand2.
+    // 2. Mito reads are skipped.
+    // 3. Unique read pairs defined by the field above.
+    // 4. Count.
+    //
+    // nameSrt suffix is consistent with Samtools fixmate manual
+    """
+    samtools sort -n -o ${prefix}.nameSrt.bam ${bam[0]}
+    bedtools bamtobed -bedpe -i ${prefix}.nameSrt.bam \\
+      | awk 'BEGIN{OFS="\\t"}{print \$1,\$2,\$4,\$6,\$9,\$10}' \\
+      | grep -v "${params.spikein_mito_name}" | sort | uniq -c \\
+      | awk 'BEGIN{mt=0;m0=0;m1=0;m2=0} (\$1==1){m1=m1+1} (\$1==2){m2=m2+1} {m0=m0+1} {mt=mt+\$1} END{m2 == 0 ? pbc2 = -1 : pbc2 = m1/m2; printf "%d\\t%d\\t%d\\t%d\\t%f\\t%f\\t%f\\n",mt,m0,m1,m2,m0/mt,m1/m0,pbc2}' > ${prefix}.nrf_pbc.txt
     """
 }
