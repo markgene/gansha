@@ -158,8 +158,10 @@ process NucFreeBigWig {
                           else if (filename.endsWith(".stats")) "samtools_stats//$filename"
                           else if (filename.endsWith(".bigWig")) "bigwig/$filename"
                           else if (filename.endsWith(".flagstat.scale_factor.txt")) "bigwig/scale/$filename"
-                          else if (filename.endsWith(".bam")) "bam/$filename"
-                          else if (filename.endsWith(".bai")) "bam/$filename"
+                          else if (filename.endsWith(".target.bam")) "bam/target/$filename"
+                          else if (filename.endsWith(".target.bam.bai")) "bam/target/$filename"
+                          else if (filename.endsWith(".spikein.bam")) "bam/spikein/$filename"
+                          else if (filename.endsWith(".spikein.bam.bai")) "bam/spikein/$filename"                          
                           else null
                 }
 
@@ -168,7 +170,8 @@ process NucFreeBigWig {
     file sizes from ch_genome_sizes_bigwig
 
     output:
-    set val(name), file("${prefix}.bam"), file("${prefix}.bam.bai") into ch_nuc_free_macs2
+    set val(name), file("${target_prefix}.bam"), file("${target_prefix}.bam.bai") into ch_nuc_free_macs2_target
+    set val(name), file("${spikein_prefix}.bam"), file("${spikein_prefix}.bam.bai") into ch_nuc_free_macs2_spikein
     set val(name), file("*.bigWig") into ch_nuc_free_bw
     set val(name), file("*.flagstat.scale_factor.txt") into ch_nuc_free_scale_factor
     file "*.{flagstat,idxstats,stats}" into ch_nuc_free_mqc
@@ -264,7 +267,7 @@ process LibraryComplexityTarget {
     set val(name), file(bam), file(bai) from ch_target_lib_complexity
 
     output:
-    file "*.nrf_pbc.txt" into ch_target_lib_complexity
+    file "*.nrf_pbc.txt" into ch_target_nrf_pbc
 
     script:
     prefix = "${name}.target"
@@ -330,7 +333,7 @@ process LibraryComplexitySpikein {
     set val(name), file(bam), file(bai) from ch_spikein_lib_complexity
 
     output:
-    file "*.nrf_pbc.txt" into ch_spikein_lib_complexity
+    file "*.nrf_pbc.txt" into ch_spikein_nrf_pbc
 
     script:
     prefix = "${name}.spikein"
