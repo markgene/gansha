@@ -1,7 +1,23 @@
-// Input: BAMs.
-// Output: Pairs of split BAMs.
+/*
+Input: BAM files after filtering
+Output: 
+    1. BAM files split into target and spike-in
+    2. BAM files split into target and spike-in nucleosome free regions (NFRs)
+    3. BigWig files normalizing target by spike-in using all reads
+    4. BigWig files normalizing target by spike-in using NFR reads
+    5. Library complexity of target and spike-in
+    6. Samtools summary by MultiQC
 
-// params.save_align_intermeds = true
+Steps
+
+1. Split by placed chromosomes (excluding mito chromosome)
+2. Library complexity of targets and spike-ins
+3. Normalize target by spike-in library size.
+    1. All reads.
+    2. Nucleosome free regions.
+*/
+
+// params.split_save_align_intermeds = true
 
 Channel
     .fromFilePairs( params.bams, size: -1 )
@@ -19,7 +35,7 @@ process SplitTargetBAM {
     label "SplitTargetSpikeinBam"
     publishDir path: "${params.outdir}", mode: 'copy',
         saveAs: { filename ->
-                      if (params.single_end || params.save_align_intermeds) {
+                      if (params.single_end || params.split_save_align_intermeds) {
                           if (filename.endsWith(".flagstat")) "samtools_stats/$filename"
                           else if (filename.endsWith(".idxstats")) "samtools_stats/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/$filename"
@@ -57,7 +73,7 @@ process SplitSpikeinBAM {
     label "SplitTargetSpikeinBam"
     publishDir path: "${params.outdir}", mode: 'copy',
         saveAs: { filename ->
-                      if (params.single_end || params.save_align_intermeds) {
+                      if (params.single_end || params.split_save_align_intermeds) {
                           if (filename.endsWith(".flagstat")) "samtools_stats/$filename"
                           else if (filename.endsWith(".idxstats")) "samtools_stats/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats/$filename"
@@ -142,7 +158,9 @@ process NucFreeBigWig {
                           else if (filename.endsWith(".stats")) "samtools_stats//$filename"
                           else if (filename.endsWith(".bigWig")) "bigwig/$filename"
                           else if (filename.endsWith(".flagstat.scale_factor.txt")) "bigwig/scale/$filename"
-                          else filename
+                          else if (filename.endsWith(".bam")) "bam/$filename"
+                          else if (filename.endsWith(".bai")) "bam/$filename"
+                          else null
                 }
 
     input:
