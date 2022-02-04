@@ -180,7 +180,7 @@ process NucFreeBigWig {
     scale_mb = params.scale_to / 1000000
     prefix_scale_mb = "${prefix}.scale${scale_mb}mb"
     pe_fragment = params.single_end ? "" : "-pc"
-    
+    extend = (params.single_end && params.fragment_size > 0) ? "-fs ${params.fragment_size}" : ''
     """
     samtools view -h ${target_bam} -@ $task.cpus \\
         | awk 'BEGIN { FS="\\t"; SIZE=${params.nuc_free_max_len}; S2=SIZE*SIZE }  /^@/ { print \$0; next } { if (\$9*\$9 < S2) print \$0}' \\
