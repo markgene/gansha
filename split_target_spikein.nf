@@ -136,7 +136,7 @@ process BigWig {
     extend = (params.single_end && params.fragment_size > 0) ? "-fs ${params.fragment_size}" : ''
     """
     samtools flagstat ${spikein_bam} > ${prefix}.spikein.flagstat
-    SCALE_FACTOR=\$(grep 'mapped (' ${prefix}.spikein.flagstat | awk '{print 1000000/\$1}')
+    SCALE_FACTOR=\$(grep 'mapped (' ${prefix}.spikein.flagstat | head -1 | awk '{print 1000000/\$1}')
     echo \$SCALE_FACTOR > ${prefix}.per1mSpikein.scale_factor.txt
     genomeCoverageBed -ibam ${target_bam} -bg -scale \$SCALE_FACTOR $pe_fragment $extend | LC_ALL=C sort -k1,1 -k2,2n >  ${prefix}.per1mSpikein.bedGraph
 
@@ -195,7 +195,7 @@ process NucFreeBigWig {
     samtools flagstat ${spikein_prefix}.bam > ${spikein_prefix}.flagstat
     samtools stats ${spikein_prefix}.bam > ${spikein_prefix}.stats
 
-    SCALE_FACTOR=\$(grep 'mapped (' ${spikein_prefix}.flagstat | awk '{print 1000000/\$1}')
+    SCALE_FACTOR=\$(grep 'mapped (' ${spikein_prefix}.flagstat | head -1 | awk '{print 1000000/\$1}')
     echo \$SCALE_FACTOR > ${prefix}.per1mSpikein.scale_factor.txt
     genomeCoverageBed -ibam ${target_prefix}.bam -bg -scale \$SCALE_FACTOR $pe_fragment $extend | LC_ALL=C sort -k1,1 -k2,2n >  ${prefix}.per1mSpikein.bedGraph
     bedGraphToBigWig ${prefix}.per1mSpikein.bedGraph $sizes ${prefix}.per1mSpikein.bigWig
