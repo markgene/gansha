@@ -157,7 +157,7 @@ process NucFreeBigWig {
                           else if (filename.endsWith(".idxstats")) "samtools_stats/$filename"
                           else if (filename.endsWith(".stats")) "samtools_stats//$filename"
                           else if (filename.endsWith(".bigWig")) "bigwig/$filename"
-                          else if (filename.endsWith(".flagstat.scale_factor.txt")) "bigwig/scale/$filename"
+                          else if (filename.endsWith(".per1mSpikein.scale_factor.txt")) "bigwig/scale/$filename"
                           else if (filename.endsWith(".target.bam")) "bam/target/$filename"
                           else if (filename.endsWith(".target.bam.bai")) "bam/target/$filename"
                           else if (filename.endsWith(".spikein.bam")) "bam/spikein/$filename"
@@ -173,7 +173,7 @@ process NucFreeBigWig {
     set val(name), file("${target_prefix}.bam"), file("${target_prefix}.bam.bai") into ch_nuc_free_macs2_target
     set val(name), file("${spikein_prefix}.bam"), file("${spikein_prefix}.bam.bai") into ch_nuc_free_macs2_spikein
     set val(name), file("*.bigWig") into ch_nuc_free_bw
-    set val(name), file("*.flagstat.scale_factor.txt") into ch_nuc_free_scale_factor
+    set val(name), file("*.per1mSpikein.scale_factor.txt") into ch_nuc_free_scale_factor
     file "*.{flagstat,idxstats,stats}" into ch_nuc_free_mqc
     
     script:
@@ -193,6 +193,9 @@ process NucFreeBigWig {
         | samtools view -@ $task.cpus -Sb - > ${spikein_prefix}.bam
 
     samtools index ${target_prefix}.bam
+    samtools idxstats ${target_prefix}.bam > ${target_prefix}.idxstats
+    samtools flagstat ${target_prefix}.bam > ${target_prefix}.flagstat
+    samtools stats ${target_prefix}.bam > ${target_prefix}.stats
     samtools index ${spikein_prefix}.bam
     samtools idxstats ${spikein_prefix}.bam > ${spikein_prefix}.idxstats
     samtools flagstat ${spikein_prefix}.bam > ${spikein_prefix}.flagstat
