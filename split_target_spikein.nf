@@ -108,7 +108,7 @@ process SplitSpikeinBAM {
 
 ch_target_bam
     .combine(ch_spikein_bam, by: 0)
-    .into { ch_bigwig_bams; ch_bigwig_bams_nuc_free }
+    .into { ch_bigwig_bams; ch_bigwig_bams_nuc_free; ch_bigwig_bams_nuc }
 
 // ch_bigwig_bams.view()
 
@@ -232,6 +232,71 @@ process MultiQCFilterNucFree {
     multiqc . -f -p
     """
 }
+
+
+/*
+* BAM and BigWig file of reads generated from putative nucleosome regions
+*/
+process NucBigWig {
+    tag "${name}"
+
+    publishDir path: "${params.outdir}/nuc", mode: 'copy',
+        saveAs: { filename ->
+                          if (filename.endsWith(".flagstat")) "samtools_stats/$filename"
+                          else if (filename.endsWith(".idxstats")) "samtools_stats/$filename"
+                          else if (filename.endsWith(".stats")) "samtools_stats//$filename"
+                          else if (filename.endsWith(".bigWig")) "bigwig/$filename"
+                          else if (filename.endsWith(".per1mSpikein.scale_factor.txt")) "bigwig/scale/$filename"
+                          else if (filename.endsWith(".target.bam")) "bam/target/$filename"
+                          else if (filename.endsWith(".target.bam.bai")) "bam/target/$filename"
+                          else if (filename.endsWith(".spikein.bam")) "bam/spikein/$filename"
+                          else if (filename.endsWith(".spikein.bam.bai")) "bam/spikein/$filename"                          
+                          else null
+                }
+
+    input:
+    set val(name), file(target_bam), file(spikein_bam) from ch_bigwig_bams_nuc
+    file sizes from ch_genome_sizes_bigwig
+
+    output:
+    set val(name), file("${target_prefix}.bam"), file("${target_prefix}.bam.bai") into ch_nuc_macs2_target
+    set val(name), file("${spikein_prefix}.bam"), file("${spikein_prefix}.bam.bai") into ch_nuc_macs2_spikein
+    set val(name), file("*.bigWig") into ch_nuc_bw
+    set val(name), file("*.per1mSpikein.scale_factor.txt") into ch_nuc_scale_factor
+    file "*.{flagstat,idxstats,stats}" into ch_nuc_mqc
+    
+    script:
+    prefix = "${name}.nuc${params.nuc_min_len}-${params.nuc_max_len}"
+    target_prefix = "${prefix}.target"
+    spikein_prefix = "${prefix}.spikein"
+    scale_mb = params.scale_to / 1000000
+    prefix_scale_mb = "${prefix}.scale${scale_mb}mb"
+    pe_fragment = params.single_end ? "" : "-pc"
+    extend = (params.single_end && params.fragment_size > 0) ? "-fs ${params.fragment_size}" : ''
+    """
+    samtools view -h ${target_bam} -@ $task.cpus \\
+        | awk 'BEGIN { FS="\\t"; SIZE=${params.nuc_max_len}; S2=SIZE*SIZE; MINSIZE=${params.nuc_min_len}; S1=MINSIZE*MINSIZE }  /^@/ { print \$0; next } { if (\$9*\$9 < S2 && \$9*\$9 > S1) print \$0}' \\
+        | samtools view -@ $task.cpus -Sb - > ${target_prefix}.bam
+    samtools view -h ${spikein_bam} -@ $task.cpus \\
+        | awk 'BEGIN { FS="\\t"; SIZE=${params.nuc_max_len}; S2=SIZE*SIZE; MINSIZE=${params.nuc_min_len}; S1=MINSIZE*MINSIZE }  /^@/ { print \$0; next } { if (\$9*\$9 < S2 && \$9*\$9 > S1) print \$0}' \\
+        | samtools view -@ $task.cpus -Sb - > ${spikein_prefix}.bam
+
+    samtools index ${target_prefix}.bam
+    samtools idxstats ${target_prefix}.bam > ${target_prefix}.idxstats
+    samtools flagstat ${target_prefix}.bam > ${target_prefix}.flagstat
+    samtools stats ${target_prefix}.bam > ${target_prefix}.stats
+    samtools index ${spikein_prefix}.bam
+    samtools idxstats ${spikein_prefix}.bam > ${spikein_prefix}.idxstats
+    samtools flagstat ${spikein_prefix}.bam > ${spikein_prefix}.flagstat
+    samtools stats ${spikein_prefix}.bam > ${spikein_prefix}.stats
+
+    SCALE_FACTOR=\$(grep 'mapped (' ${spikein_prefix}.flagstat | head -1 | awk '{print 1000000/\$1}')
+    echo \$SCALE_FACTOR > ${prefix}.per1mSpikein.scale_factor.txt
+    genomeCoverageBed -ibam ${target_prefix}.bam -bg -scale \$SCALE_FACTOR $pe_fragment $extend | LC_ALL=C sort -k1,1 -k2,2n >  ${prefix}.per1mSpikein.bedGraph
+    bedGraphToBigWig ${prefix}.per1mSpikein.bedGraph $sizes ${prefix}.per1mSpikein.bigWig
+    """
+}
+
 
 
 /*
