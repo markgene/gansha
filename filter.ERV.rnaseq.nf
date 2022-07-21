@@ -1,7 +1,12 @@
 // Filter RNA-seq for ERV detection
 // 
 // Input: BAM files, coordinate sorted
-// Output: BAM files, coordinated sorted
+// Output: 
+//   1. BAM files, coordinated sorted
+//   2. Tab files of read count per ERV region taking account strand info or not.
+//
+//   The table has seven columns. The last column is the read count. 
+//   By default, overlap of 1 bp is counted.
 
 // Default
 params.mapq_threshold = 1
