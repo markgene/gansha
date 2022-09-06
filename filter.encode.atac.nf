@@ -507,7 +507,7 @@ process LibraryComplexity {
     //
     // nameSrt suffix is consistent with Samtools fixmate manual
     """
-    samtools sort -n -o ${prefix}.nameSrt.bam ${bam[0]}
+    samtools sort -@ $task.cpus -n -o ${prefix}.nameSrt.bam ${bam[0]}
     bedtools bamtobed -bedpe -i ${prefix}.nameSrt.bam \\
       | awk 'BEGIN{OFS="\\t"}{print \$1,\$2,\$4,\$6,\$9,\$10}' \\
       | grep -v "${mito_filter}" | sort | uniq -c \\
